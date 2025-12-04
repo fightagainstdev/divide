@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LUMIN AI 极速音乐分离实验室</title>
+    <!-- 引入 Tailwind CSS 进行美化 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 FontAwesome 图标 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- 引入 Wavesurfer.js 用于波形显示 -->
+    <script src="https://unpkg.com/wavesurfer.js@7"></script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: #e2e8f0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+        }
+        .stem-card {
+            transition: all 0.3s ease;
+        }
+        .stem-card:hover {
+            transform: translateY(-2px);
+            background: rgba(51, 65, 85, 0.8);
+        }
+        /* 自定义滚动条 */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center py-10 px-4">
+
+    <!-- 标题区 -->
+    <header class="text-center mb-10">
+        <h1 class="text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-purple-500 mb-4">
+            <i class="fa-solid fa-music"></i>LUMIN AI 音乐分离工作站
+        </h1>
+        <p class="text-slate-400 text-lg">上传音频，一键提取人声、鼓点、贝斯及其他乐器</p>
+    </header>
+
+    <!-- 主容器 -->
+    <main class="w-full max-w-4xl space-y-8">
+
+        <!-- 上传与主播放器区域 -->
+        <div class="glass-panel rounded-2xl p-6 md:p-8">
+            
+            <!-- 上传区域 -->
+            <div id="upload-zone" class="border-2 border-dashed border-slate-600 rounded-xl p-10 text-center cursor-pointer hover:border-cyan-400 transition-colors bg-slate-800/50">
+                <input type="file" id="audio-upload" accept="audio/*" class="hidden">
+                <div class="text-4xl text-cyan-400 mb-3"><i class="fa-solid fa-cloud-arrow-up"></i></div>
+                <h3 class="text-xl font-semibold mb-2">点击或拖拽上传音乐文件</h3>
+                <p class="text-sm text-slate-500">支持 MP3, WAV, FLAC (最大 50MB)</p>
+            </div>
+
+            <!-- 主播放器 (默认隐藏) -->
+            <div id="main-player-container" class="hidden mt-6 space-y-4">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-cyan-400 font-bold"><i class="fa-solid fa-compact-disc"></i> 原曲预览</span>
+                    <span id="file-name" class="text-xs text-slate-400"></span>
+                </div>
+                
+                <!-- 波形图容器 -->
+                <div id="waveform" class="w-full bg-slate-900/50 rounded-lg overflow-hidden h-24"></div>
+
+                <!-- 控制栏 -->
+                <div class="flex flex-wrap items-center justify-between gap-4 mt-4 bg-slate-800/50 p-3 rounded-xl">
+                    <!-- 播放/暂停 -->
+                    <button id="play-btn" class="w-12 h-12 rounded-full bg-cyan-500 hover:bg-cyan-400 text-white flex items-center justify-center transition shadow-lg shadow-cyan-500/30">
+                        <i class="fa-solid fa-play"></i>
+                    </button>
+
+                    <!-- 控制组 -->
+                    <div class="flex gap-6 flex-1 justify-end">
+                        <!-- 音量 -->
+                        <div class="flex items-center gap-2">
+                            <i class="fa-solid fa-volume-high text-slate-400 text-sm"></i>
+                            <input type="range" id="volume-slider" min="0" max="1" step="0.1" value="1" class="w-24 accent-cyan-400 h-1 bg-slate-600 rounded-lg appearance-none cursor-pointer">
+                        </div>
+                        <!-- 速度 -->
+                        <div class="flex items-center gap-2">
+                            <i class="fa-solid fa-gauge-high text-slate-400 text-sm"></i>
+                            <select id="speed-select" class="bg-slate-700 text-xs rounded px-2 py-1 outline-none border border-slate-600 focus:border-cyan-400">
+                                <option value="0.5">0.5x</option>
+                                <option value="1" selected>1.0x</option>
+                                <option value="1.5">1.5x</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 分离按钮 -->
+                <button id="separate-btn" class="w-full mt-6 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-bold py-4 rounded-xl shadow-lg transition transform active:scale-95 flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> 开始 AI 分离 (一键提取 Stem)
+                </button>
+
+                <!-- 清空按钮 -->
+                <button id="clear-btn" class="w-full mt-4 bg-gray-600 hover:bg-gray-500 text-white font-bold py-3 rounded-xl shadow-lg transition transform active:scale-95 flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-trash"></i> 清空文件 (选择其他 MP3)
+                </button>
+            </div>
+        </div>
+
+        <!-- 处理状态 -->
+        <div id="processing-status" class="hidden text-center py-8">
+            <div class="inline-block animate-spin text-4xl text-cyan-400 mb-4"><i class="fa-solid fa-circle-notch"></i></div>
+            <p class="text-lg font-semibold animate-pulse">AI 正在深度分析频谱并进行分离...</p>
+            <p class="text-sm text-slate-500 mt-2">这可能需要 30-60 秒，取决于歌曲长度</p>
+        </div>
+
+        <!-- 结果区域 -->
+        <div id="results-area" class="hidden space-y-4">
+            <h2 class="text-2xl font-bold mb-4 border-l-4 border-purple-500 pl-3">分离结果 (Stems)</h2>
+            <div class="grid grid-cols-1 gap-4" id="stems-list">
+                <!-- JS 将在这里动态插入轨道 -->
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        // 配置
+        const API_URL = "http://localhost:8000"; // 指向你的本地Python后端
+        const MAX_SIZE = 50 * 1024 * 1024; // 50MB
+
+        // DOM 元素
+        const uploadZone = document.getElementById('upload-zone');
+        const fileInput = document.getElementById('audio-upload');
+        const mainPlayerContainer = document.getElementById('main-player-container');
+        const separateBtn = document.getElementById('separate-btn');
+        const clearBtn = document.getElementById('clear-btn');
+        const processingStatus = document.getElementById('processing-status');
+        const resultsArea = document.getElementById('results-area');
+        const stemsList = document.getElementById('stems-list');
+        const playBtn = document.getElementById('play-btn');
+        const volumeSlider = document.getElementById('volume-slider');
+        const speedSelect = document.getElementById('speed-select');
+
+        let wavesurfer;
+        let originalFile;
+
+        // 初始化 Wavesurfer
+        function initWavesurfer(url) {
+            if(wavesurfer) wavesurfer.destroy();
+            wavesurfer = WaveSurfer.create({
+                container: '#waveform',
+                waveColor: '#475569',
+                progressColor: '#22d3ee',
+                cursorColor: '#ffffff',
+                barWidth: 2,
+                barRadius: 3,
+                cursorWidth: 1,
+                height: 96,
+                barGap: 3,
+            });
+            wavesurfer.load(url);
+            
+            wavesurfer.on('ready', () => {
+                // 启用按钮
+            });
+
+            wavesurfer.on('finish', () => {
+                playBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
+            });
+        }
+
+        // 上传逻辑
+        uploadZone.addEventListener('click', () => fileInput.click());
+        uploadZone.addEventListener('dragover', (e) => { e.preventDefault(); uploadZone.classList.add('border-cyan-400'); });
+        uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('border-cyan-400'));
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('border-cyan-400');
+            handleFile(e.dataTransfer.files[0]);
+        });
+        fileInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
+
+        function handleFile(file) {
+            if (!file) return;
+            if (file.size > MAX_SIZE) {
+                alert("文件太大！请上传小于 50MB 的文件。");
+                return;
+            }
+            if (!file.type.startsWith('audio/')) {
+                alert("请上传音频文件。");
+                return;
+            }
+
+            originalFile = file;
+            document.getElementById('file-name').innerText = file.name;
+            uploadZone.classList.add('hidden');
+            mainPlayerContainer.classList.remove('hidden');
+            
+            const objectUrl = URL.createObjectURL(file);
+            initWavesurfer(objectUrl);
+        }
+
+        // 播放控制
+        playBtn.addEventListener('click', () => {
+            wavesurfer.playPause();
+            const isPlaying = wavesurfer.isPlaying();
+            playBtn.innerHTML = isPlaying ? '<i class="fa-solid fa-pause"></i>' : '<i class="fa-solid fa-play"></i>';
+        });
+
+        volumeSlider.addEventListener('input', (e) => wavesurfer.setVolume(e.target.value));
+        speedSelect.addEventListener('change', (e) => wavesurfer.setPlaybackRate(parseFloat(e.target.value)));
+
+        // 清空文件功能
+        clearBtn.addEventListener('click', () => {
+            // 重置文件状态
+            originalFile = null;
+            document.getElementById('file-name').innerText = '';
+
+            // 销毁波形图
+            if (wavesurfer) {
+                wavesurfer.destroy();
+                wavesurfer = null;
+            }
+
+            // 隐藏播放器，显示上传区域
+            mainPlayerContainer.classList.add('hidden');
+            uploadZone.classList.remove('hidden');
+
+            // 隐藏结果区域
+            resultsArea.classList.add('hidden');
+            stemsList.innerHTML = '';
+
+            // 重置文件输入
+            fileInput.value = '';
+        });
+
+        // 核心分离逻辑
+        separateBtn.addEventListener('click', async () => {
+            if (!originalFile) return;
+
+            // UI 状态切换
+            mainPlayerContainer.classList.add('opacity-50', 'pointer-events-none');
+            processingStatus.classList.remove('hidden');
+            resultsArea.classList.add('hidden');
+            stemsList.innerHTML = ''; // 清空旧结果
+
+            const formData = new FormData();
+            formData.append('file', originalFile);
+
+            try {
+                // *** 真实 API 调用 ***
+                const response = await fetch(`${API_URL}/separate`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) throw new Error("分离服务出错");
+
+                const data = await response.json();
+
+                if (data.error) {
+                    alert("分离失败: " + data.error);
+                    return;
+                }
+
+                // 渲染结果
+                renderStems(data.stems);
+
+            } catch (error) {
+                console.error(error);
+                alert("连接 AI 后端失败。如果您没有运行后端 Python 脚本，这是一个预期错误。\n\n请按说明运行后端。");
+                // 演示模式（仅用于展示UI效果，如果后端失败）
+                // demoModeRender(); 
+            } finally {
+                processingStatus.classList.add('hidden');
+                mainPlayerContainer.classList.remove('opacity-50', 'pointer-events-none');
+                resultsArea.classList.remove('hidden');
+            }
+        });
+
+        function renderStems(stems) {
+            if (!stems || typeof stems !== 'object') {
+                alert("没有找到分离结果");
+                return;
+            }
+
+            // stems 格式预期: { "vocals": "url...", "drums": "url...", ... }
+            const labels = {
+                'vocals': { name: '人声 (Vocals)', icon: 'fa-microphone', color: 'text-pink-400' },
+                'drums': { name: '鼓组 (Drums)', icon: 'fa-drum', color: 'text-yellow-400' },
+                'bass': { name: '贝斯 (Bass)', icon: 'fa-guitar', color: 'text-blue-400' },
+                'other': { name: '其他乐器 (Others)', icon: 'fa-music', color: 'text-green-400' }
+            };
+
+            for (const [key, url] of Object.entries(stems)) {
+                const info = labels[key] || { name: key, icon: 'fa-wave-square', color: 'text-gray-400' };
+                // 加上 API_URL 前缀如果返回的是相对路径
+                const fullUrl = url.startsWith('http') ? url : `${API_URL}${url}`;
+                
+                const html = `
+                    <div class="stem-card glass-panel rounded-xl p-4 flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-full bg-slate-700 flex items-center justify-center text-xl ${info.color}">
+                            <i class="fa-solid ${info.icon}"></i>
+                        </div>
+                        <div class="flex-1">
+                            <h4 class="font-bold text-sm mb-1">${info.name}</h4>
+                            <audio controls class="w-full h-8 block" src="${fullUrl}"></audio>
+                        </div>
+                        <a href="${fullUrl}" download="${key}.mp3" class="w-10 h-10 rounded-lg bg-slate-700 hover:bg-slate-600 flex items-center justify-center text-cyan-400 transition">
+                            <i class="fa-solid fa-download"></i>
+                        </a>
+                    </div>
+                `;
+                stemsList.insertAdjacentHTML('beforeend', html);
+            }
+        }
+    </script>
+</body>
+</html>
